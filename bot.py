@@ -3,7 +3,7 @@ import logging
 import datetime
 import random
 from aiogram import Bot, Dispatcher, types
-from states import d
+from states import d, get_full
 from secret import token
 from db import users, profiles
 from aiogram.types import BotCommand
@@ -16,6 +16,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.formatting import Text, Bold
 from aiogram.enums.parse_mode import ParseMode
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 sts = list(d.keys())
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +29,7 @@ bot = Bot(
     session=session
 )
 dp = Dispatcher()
-
+user_data = {}
 
 @dp.message(Command("reply"))
 async def cmd_reply1(message: types.Message):
@@ -42,13 +43,17 @@ async def cmd_reply2(message: types.Message):
 async def cmd_reply3(message: types.Message):
     cur = random.choice(sts)
     cur1 = cur.replace("_", ".")
-    content = Text(
-        Bold(message.from_user.full_name),
-        f" приговаривается к статье {cur1.split()[-1][:-1]}: {d[cur].strip()}"
+    builder = InlineKeyboardBuilder()
+    builder.add(types.InlineKeyboardButton(
+        text="Полный текст статьи",
+        callback_data="num_" + str(cur) + "_" + str(message.from_user.id))
     )
-    await message.reply(
-        **content.as_kwargs()
-        )
+
+    await message.answer(
+
+        f" приговаривается к статье {cur1.split()[-1][:-1]}: {d[cur].strip()}",
+        reply_markup=builder.as_markup()
+    )
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -87,23 +92,14 @@ async def state(message: types.Message):
     else:
         await message.answer("Рано статью узнавать! Ещё ту не отбыли!")
 
+@dp.callback_query(F.data.startswith("num_"))
+async def callbacks_num(callback: types.CallbackQuery):
+    action = callback.data.split("_")
+    await bot.send_message(action[2], get_full(str(action[1].split()[-1]).strip(".") + "."))
+
 @dp.message(F.text.lower() == "в личное дело")
 async def profile(message: types.Message):
     await message.reply("Данный раздел в разработке, ждите")
-
-# Debug!
-async def set_main_menu(bot: Bot):
-    main_menu_commands = [
-        BotCommand(command='/start',
-                   description='Справка по работе бота'),
-        BotCommand(command='моя статья',
-                   description='Ваша статья сегодня'),
-        BotCommand(command='/contacts',
-                   description='Другие способы связи'),
-        BotCommand(command='/payments',
-                   description='Платежи')
-    ]
-    await bot.set_my_commands(main_menu_commands)
 
 async def main():
     await dp.start_polling(bot)

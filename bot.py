@@ -2,6 +2,7 @@ import asyncio
 import logging
 import datetime
 import random
+import re
 from aiogram import Bot, Dispatcher, types
 from states import d, get_full
 from secret import token
@@ -10,7 +11,8 @@ from aiogram.types import BotCommand
 from aiogram.filters.command import Command
 from aiogram import F
 from aiogram import html
-from aiogram.filters import Command
+from aiogram.utils import deep_linking 
+from aiogram.filters import Command, CommandStart
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.formatting import Text, Bold
@@ -65,8 +67,8 @@ async def cmd_start(message: types.Message):
         profiles[usr] = {"stl": None, "time": datetime.datetime(2000, 1, 1), "years": None}
     kb = [
         [
-            types.KeyboardButton(text="Узнать статью"),
-            types.KeyboardButton(text="В личное дело")
+            types.KeyboardButton(text="Узнать статью"), types.KeyboardButton(text="В личное дело"), types.KeyboardButton(text="Донат"),
+            types.KeyboardButton(text="Реферальная программа")
         ],
     ]
     keyboard = types.ReplyKeyboardMarkup(
@@ -74,20 +76,14 @@ async def cmd_start(message: types.Message):
         resize_keyboard=True,
         input_field_placeholder="Куда дальше?"
     )
+    print(profiles)
     await message.answer(f"Здравствуйте, {html.bold(html.quote(message.from_user.full_name))}!", reply_markup=keyboard)
 
 @dp.message(F.text.lower() == "узнать статью")
-async def state(message: types.Message):
-    usrtime = profiles[message.from_user.full_name]["time"]
-    if (usrtime == 0 or datetime.datetime.now() - usrtime >= datetime.timedelta(hours=8)):
-        profiles[message.from_user.full_name]["time"] = datetime.datetime.now()
-        await cmd_reply3(message)
-    else:
-        await message.answer("Рано статью узнавать! Ещё ту не отбыли!")
-
+@dp.message(F.text.lower() == "моя статья")
 @dp.message(F.text.lower() == "мая статья")
 async def state(message: types.Message):
-    usrtime = profiles[message.from_user.full_name]
+    usrtime = profiles[message.from_user.full_name]["time"]
     if (usrtime == 0 or datetime.datetime.now() - usrtime >= datetime.timedelta(hours=8)):
         profiles[message.from_user.full_name]["time"] = datetime.datetime.now()
         await cmd_reply3(message)
@@ -97,6 +93,7 @@ async def state(message: types.Message):
 @dp.callback_query(F.data.startswith("num_"))
 async def callbacks_num(callback: types.CallbackQuery):
     action = callback.data.split("_")
+    print(action)
     await bot.send_message(action[2], get_full(str(action[1].split()[-1]).strip(".") + "."))
 
 @dp.message(F.text.lower() == "в личное дело")
@@ -110,8 +107,14 @@ async def profile(message: types.Message):
         )
     await message.reply(text, parse_mode="HTML")
 
+@dp.message(F.text.lower() == "реферальная программа") 
+async def referral(message: types.Message): 
+    link = await deep_linking.create_start_link(bot, str(message.from_user.full_name), encode=True) 
+    await message.answer(f"Ваша пригласительная ссылка: {link}") 
+
 async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
+    print(profiles)

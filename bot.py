@@ -39,6 +39,7 @@ async def cmd_reply1(message: types.Message):
 async def cmd_reply2(message: types.Message):
     await message.reply('1000-7 ZXC')
 
+# For testing only!!!
 @dp.message(Command("my_statia"))
 async def cmd_reply3(message: types.Message):
     cur = random.choice(sts)
@@ -48,19 +49,20 @@ async def cmd_reply3(message: types.Message):
         text="Полный текст статьи",
         callback_data="num_" + str(cur) + "_" + str(message.from_user.id))
     )
-
+    st_numb: int = cur1.split()[-1][:-1]
+    profiles[message.from_user.full_name]["stl"]
     await message.answer(
 
-        f" приговаривается к статье {cur1.split()[-1][:-1]}: {d[cur].strip()}",
+        f"{html.bold(html.quote(message.from_user.full_name))} приговаривается к статье {st_numb}: {d[cur].strip()}",
         reply_markup=builder.as_markup()
     )
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    if (message.from_user.full_name) not in users:
-        users.add(message.from_user.full_name)
-        profiles[message.from_user.full_name] = 0
-
+    usr = message.from_user.full_name
+    if (usr) not in users:
+        users.add(usr)
+        profiles[usr] = {"stl": None, "time": 0}
     kb = [
         [
             types.KeyboardButton(text="Узнать статью"),
@@ -76,18 +78,18 @@ async def cmd_start(message: types.Message):
 
 @dp.message(F.text.lower() == "узнать статью")
 async def state(message: types.Message):
-    usrtime = profiles[message.from_user.full_name]
+    usrtime = profiles[message.from_user.full_name]["time"]
     if (usrtime == 0 or datetime.datetime.now() - usrtime >= datetime.timedelta(hours=8)):
-        profiles[message.from_user.full_name] = datetime.datetime.now()
+        profiles[message.from_user.full_name]["time"] = datetime.datetime.now()
         await cmd_reply3(message)
     else:
         await message.answer("Рано статью узнавать! Ещё ту не отбыли!")
 
-@dp.message(F.text.lower() == "узнать статью")
+@dp.message(F.text.lower() == "мая статья")
 async def state(message: types.Message):
     usrtime = profiles[message.from_user.full_name]
     if (usrtime == 0 or datetime.datetime.now() - usrtime >= datetime.timedelta(hours=8)):
-        profiles[message.from_user.full_name] = datetime.datetime.now()
+        profiles[message.from_user.full_name]["time"] = datetime.datetime.now()
         await cmd_reply3(message)
     else:
         await message.answer("Рано статью узнавать! Ещё ту не отбыли!")
@@ -99,6 +101,11 @@ async def callbacks_num(callback: types.CallbackQuery):
 
 @dp.message(F.text.lower() == "в личное дело")
 async def profile(message: types.Message):
+    usr = message.from_user.full_name
+    text = (
+        f"Ваше имя: <u>{usr}</u>\nПоследняя статья: {profiles[usr]["stl"]}\nВаш ожидаемый срок: {"?"}"
+    )
+    await message.reply(text, parse_mode="HTML")
     await message.reply("Данный раздел в разработке, ждите")
 
 async def main():

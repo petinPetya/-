@@ -50,7 +50,7 @@ async def cmd_reply3(message: types.Message):
         callback_data="num_" + str(cur) + "_" + str(message.from_user.id))
     )
     st_numb: int = cur1.split()[-1][:-1]
-    profiles[message.from_user.full_name]["stl"]
+    profiles[message.from_user.full_name]["stl"] = cur
     await message.answer(
 
         f"{html.bold(html.quote(message.from_user.full_name))} приговаривается к статье {st_numb}: {d[cur].strip()}",
@@ -62,7 +62,7 @@ async def cmd_start(message: types.Message):
     usr = message.from_user.full_name
     if (usr) not in users:
         users.add(usr)
-        profiles[usr] = {"stl": None, "time": 0}
+        profiles[usr] = {"stl": None, "time": datetime.datetime(2000, 1, 1), "years": None}
     kb = [
         [
             types.KeyboardButton(text="Узнать статью"),
@@ -102,11 +102,13 @@ async def callbacks_num(callback: types.CallbackQuery):
 @dp.message(F.text.lower() == "в личное дело")
 async def profile(message: types.Message):
     usr = message.from_user.full_name
+    print(datetime.timedelta(hours=8) - (datetime.datetime.now() - profiles[usr]['time']))
     text = (
-        f"Ваше имя: <u>{usr}</u>\nПоследняя статья: {profiles[usr]["stl"]}\nВаш ожидаемый срок: {"?"}"
-    )
+        f"Ваше имя: <u>{usr}</u>\nПоследняя статья: {profiles[usr]['stl']}\n\
+Ваш ожидаемый срок: {profiles[usr]['years']}\n\
+До следующей статьи: {max(datetime.timedelta(hours=0), datetime.timedelta(hours=8) - (datetime.datetime.now() - profiles[usr]['time']))}"
+        )
     await message.reply(text, parse_mode="HTML")
-    await message.reply("Данный раздел в разработке, ждите")
 
 async def main():
     await dp.start_polling(bot)

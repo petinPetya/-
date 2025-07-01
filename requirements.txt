@@ -1,0 +1,4 @@
+aiogram~=3.17.0
+pyTelegramBotAPI~=4.26.0
+yoomoney
+sqlite

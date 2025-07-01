@@ -2,6 +2,7 @@ import asyncio
 import logging
 import datetime
 import random
+import base64
 import re
 from aiogram import Bot, Dispatcher, types
 from states import d, get_full
@@ -17,8 +18,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.default import DefaultBotProperties
 from aiogram.utils.formatting import Text, Bold
 from aiogram.enums.parse_mode import ParseMode
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 sts = list(d.keys())
 logging.basicConfig(level=logging.INFO)
@@ -62,29 +62,48 @@ async def cmd_reply3(message: types.Message):
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     usr = message.from_user.full_name
+    com, *args = message.text.split()
     if (usr) not in users:
         users.add(usr)
-        profiles[usr] = {"stl": None, "time": datetime.datetime(2000, 1, 1), "years": None}
+        profiles[usr] = {"stl": None, "time": datetime.datetime(2000, 1, 1),
+                         "till_upd": datetime.timedelta(hours=8), "years": None, "invited":  0}
     kb = [
-        [
-            types.KeyboardButton(text="Узнать статью"), types.KeyboardButton(text="В личное дело"), types.KeyboardButton(text="Донат"),
-            types.KeyboardButton(text="Реферальная программа")
-        ],
+        [types.KeyboardButton(text="Узнать статью"), types.KeyboardButton(text="В личное дело"), types.KeyboardButton(text="Донат")],
+        [types.KeyboardButton(text="Реферальная программа")]
     ]
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=kb,
         resize_keyboard=True,
         input_field_placeholder="Куда дальше?"
     )
-    print(profiles)
+    print(profiles, message.text)
+    if args: 
+        ref_nm = args[0].encode('utf-8')
+        print(ref_nm)
+        padding_needed = (4 - len(ref_nm) % 4) % 4
+        padded_string = ref_nm + b'=' * padding_needed
+        ref_nm = base64.b64decode(padded_string).decode('utf-8')
+        print(ref_nm, "addded_user")
+        profiles[ref_nm]["invited"] += 1
+
     await message.answer(f"Здравствуйте, {html.bold(html.quote(message.from_user.full_name))}!", reply_markup=keyboard)
+
+def decode_base64(ref_nm):
+  try:
+    decoded_bytes = base64.b64decode(ref_nm)
+    decoded_string = decoded_bytes.decode('utf-8')
+    return decoded_string
+  except (TypeError, ValueError) as e:
+    print(f"Ошибка при декодировании: {e}")
+    return None
 
 @dp.message(F.text.lower() == "узнать статью")
 @dp.message(F.text.lower() == "моя статья")
 @dp.message(F.text.lower() == "мая статья")
 async def state(message: types.Message):
-    usrtime = profiles[message.from_user.full_name]["time"]
-    if (usrtime == 0 or datetime.datetime.now() - usrtime >= datetime.timedelta(hours=8)):
+    usr = message.from_user.full_name
+    usrtime = profiles[user]["time"]
+    if (usrtime == 0 or datetime.datetime.now() - usrtime >= profiles[usr]["till_upd"]):
         profiles[message.from_user.full_name]["time"] = datetime.datetime.now()
         await cmd_reply3(message)
     else:
@@ -110,7 +129,15 @@ async def profile(message: types.Message):
 @dp.message(F.text.lower() == "реферальная программа") 
 async def referral(message: types.Message): 
     link = await deep_linking.create_start_link(bot, str(message.from_user.full_name), encode=True) 
-    await message.answer(f"Ваша пригласительная ссылка: {link}") 
+    await message.answer(
+        f"<i>Ваша пригласительная ссылка: </i> {link}\n{'-' * (len(link) + 56)}\n"
+        
+        f"<i>Приглашено ползователей: </i> {profiles[message.from_user.full_name]['invited']}", parse_mode="HTML"
+        ) 
+    
+@dp.message(F.text.lower() == "донат")
+async def donate(message: types.Message):
+    await message.reply("Раздел донатов пока в разработке.")
 
 async def main():
     await dp.start_polling(bot)
